@@ -1,0 +1,47 @@
+
+
+Replication Files and Winbugs Code for an Integrated Roll Call Vote/Bill Cosponsorship
+	Ideological Ideal Point Model Estimation Model.  This model is described in more 
+	detail in the Appendix 1 of Garretson 2018.  The results of an analysis of roll call
+	votes and gays rights are displayed on page 118.
+
+1. Folder 'Raw Data on Roll Calls and Cosponsorship' contains roll call vote data for the 93rd to
+	109th congresses. Roll Call data from Keith Poole and Howard Rosenthal's website 
+	voteview.com.  Cosponsorship data from James Fowler's (UCSD) website.
+
+2. 'WinBugsModelAnotedCode.txt' Contains the basic WinBUGS code for the model with notes describing in Appendix 1.
+
+3. 'functionMakeVotesBillsBugsFile.txt' contains code for 2 R functions that simplify the extraction
+	of small subsets of votes from the Poole and Fowler data.  
+	(Note: These functions were written before dplyr and other data management packages in R
+		were in common use.)
+
+	1. 'makebillsandvotesfileH() takes in three arguments (1: a vector of Poole/Rosenthal Bill numbers,
+		2: a vector of names of bills in a string formate ("HR100"), and 3: a congress number)
+		and creates a WinBUGS Data File "data.txt' of the rollcall and cosponsorship information 
+		of those bills in the current working directory for use in WinBugs.  The data is also 
+		saved as an object in R for use in the below function.  This can then be copy and pasted or 
+		opened in WinBugs.
+
+	2. 'votesbilldatamerge' takes in two outputs data objects from the prior function, and merges them into
+		a single file, while outputing a corresponding 'data.txt' file for WinBugs.  That way, votes and
+		bill can be combined for WinBugs across multiple congresses.
+
+4. 'gaybillsandvotesrawdata.txt' contains the vectors of roll call votes and bills that involved gay rights 
+	from the 100th to 109th congress used in the book.  
+
+5. 'winbugsgayvotes100102' and similarly named files contains the actual WinBUGS files used in estimate in the book
+	with the years of the cross-sectional estimation at the end of the file name.
+
+6. 'gaybillresults.txt' contains a data file of the descriptions of each legislator's ideal points on gay rights
+	in the 4 times periods used.  The prefixes correspond to the time period:
+	'x100' ~ 100-102nd Congress
+	'x103' ~ 103-104th Congress
+	'x105' ~ 105-106th Congress
+	'x1'   ~ 107-109th Congress
+	The file is space deliminated with strings in quotes.
+	Most of the variables names are intuitive and correspond to data in the Pool/Rosenthal data sets or standard 
+	WinBugs MCMC outputs.  For instance 'x1mean' in the mean of the ideal point for each member in the 
+	100-102nd Congress, and 'x12.5' is the 2.5% quantile in the 100-102nd congress.
+
+Garretson, Jeremiah J. The Path to Gay Rights: How Activism and Coming Out Changed Public Opinion

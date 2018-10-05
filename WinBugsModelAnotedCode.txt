@@ -1,0 +1,37 @@
+model{
+   for(i in 1:numlegislators){     					#Loop over Legislators                               
+	for(j in 1:numvotes){						#Loop over Roll Call Votes
+	   logit(pi[i,j]) <- x[i]*beta[j,1] - beta[j,2]				#Clinton, Jackman, River's Bayes IRT Model
+	   votesdata[i,j] ~ dbern(pi[i,j])					# for roll call votes as a function of
+	}									# Legislator ideology (x[i]).
+	for(h in 1:numbills){						#Loop over bills to cosponsor
+	   lin[i,h]<-(gamma[h]*((x[i]*p[h])+((200-x[i])*(1-p[h]))))		#Rate of Cosponsorship=gamma*((x[i]*p[i]  +  (200-x[i])*(1-p[i])))
+           cosponsorshipdata[i,h] ~ dexp(lin[i,h])				#days to cosponsor ~ exponential(Rate of Cosponsorship)
+										#               gamma[h] = base cosponsorship rate
+										#               x[i] = Legislator liberalism
+										#               200-x[i] = Legislator conservatism
+										#               p[h] = Bill Liberalism
+										#               1-p[h] = Bill COnservatism
+										#--> Rate of Cossporship=gamma*(LegisLib*BillLib + LegisCon*BillCon)
+	}
+}
+for(i in 1:8){                                                          #Vague Priors over Legislator Liberalism
+	x[i] ~ dnorm(100, .1)
+	}
+for(i in 10:17){
+	x[i] ~ dnorm(100, .1)
+	}
+for(i in 19:numlegislators){
+	x[i] ~ dnorm(100, .1)
+	}
+x[18] <- 105								#Bridging Legislators defining Ideology Scale
+x[9] <- 95
+for(j in 1:numvotes){							#Vague Priors over Bill Roll Call Vote Parameters
+	beta[j,1]~dnorm(0,.1)
+	beta[j,2]~dnorm(0,.1)
+	}
+for(h in 1:numbills){							#Vague Priors over Bill Cosposorship Rate Parameters
+	p[h]~dunif(0,1)
+	gamma[h]~dunif(0,1)
+}
+}

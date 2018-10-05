@@ -1,0 +1,346 @@
+library(MASS)
+library(car)
+library(wnominate)
+library(date)
+library(R2WinBUGS)
+
+
+setwd("c:/Users/profg/Desktop/GayVotes/Raw Data on Roll Calls and Cosponsorship")
+
+makebillsandvotesfileH <- function(votes, bills, cong){
+
+#setwd(" directory with data files ")
+
+#-----------------------This Block of Code reads in the data for that Congress----------------
+numbills<-length(bills)
+votesfile<-paste("hou",cong,"kh.ord",sep="")
+h101<-readKH(votesfile)
+print("Poole Data Read OK")
+bill.names<-read.table("house_bills.csv",sep=",",header=T,row.names=NULL)
+attach(bill.names)
+bill.names<-bill.names[congress==cong,]
+detach(bill.names)
+
+if (cong>99) (namesfile<-paste(cong,"_house.csv",sep=""))
+if (cong<100) (namesfile<-paste("0",cong,"_house.csv",sep=""))
+if (cong>99) (cosponfile<-paste(cong,"_housedatematrix.txt",sep=""))
+if (cong<100) (cosponfile<-paste("0",cong,"_housedatematrix.txt",sep=""))
+
+con.names<-read.table(namesfile,sep=",")
+numberbills<-length(bill.names[,1])
+billnames<-0
+for (i in 1:numberbills){
+billnames[i]<-paste(bill.names[i,2],bill.names[i,3],sep="")
+}
+numgaybill<-length(bills)
+connum<-length(con.names[,3])
+connames4<-0
+for (j in 1:connum){
+connames4[j]<-paste(con.names[j,3])
+}
+
+cospon.data<-read.table(cosponfile,sep=",",header=T,col.names=billnames,row.names=connames4)
+print("Fowler Data Read OK")
+
+#------------------------This Block Processes the vote Data and Builds a vote Matrix from those votes-----
+
+leg101<-h101$legis.data
+state<-leg101[,1]
+statenum<-leg101[,2]
+district<-leg101[,3]
+icpsr<-leg101[,4]
+party<-leg101[,5]
+partynum<-leg101[,6]
+names<-row.names(leg101)
+h101roll<-h101$votes
+h101roll<-as.matrix(h101roll)
+numvotes101<-length(votes)
+NumHouse<-length(state)
+votes<-sort(votes)
+con<-rep(cong,NumHouse)
+votesmatrix101<-matrix(rep(0,numvotes101*NumHouse),NumHouse,numvotes101)
+legislators<-data.frame(names,con,icpsr,state,statenum,district,party,partynum)
+for (w in 1:numvotes101){
+	x<-votes[w]
+	votesmatrix101[,w]<-h101roll[,x]
+}
+
+votesmatrix101<-recode(votesmatrix101,"1:3=1; 4:6=0; 7:9=NA")
+print("Vote Matrix Created OK, Checking Bills")
+print("1 = Bill OK, 0 = Bill Does Not Exist")
+
+#-----------------------This Block Processes the bills data and builds a days cosponsorship file----------
+
+
+
+billexist<-rep(0,numbills)
+for (j in 1:numbills){
+     currentbill<-bills[j]
+for (i in 1:numberbills){
+	if (billnames[i]==currentbill) (billexist[j]<-1)
+}}
+g<-data.frame(bills,billexist)
+print(g)
+gaycosponsorship<-matrix(rep(0,numbills*NumHouse),NumHouse,numbills)
+l<-1
+k<-1
+for (l in 1:numbills){
+  for (k in 1:NumHouse){
+	legisicpsrnum<-paste(icpsr[k])
+	billwereon<-bills[l]
+	gaycosponsorship[k,l]<-paste(cospon.data[legisicpsrnum,billwereon])
+  }
+}
+row.names(gaycosponsorship)<-names
+colnames(gaycosponsorship)<-bills
+l<-1
+k<-1
+for (l in 1:numbills){
+  for (k in 1:NumHouse){
+	gaycosponsorship[k,l]<-as.Date(gaycosponsorship[k,l], "%m/%d/%Y")
+  }
+}
+l<-1
+k<-1
+gaycosponsorship2<-matrix(rep(0,numbills*NumHouse),NumHouse,numbills)
+for (l in 1:numbills){
+  for (k in 1:NumHouse){
+	gaycosponsorship2[k,l]<-as.numeric(gaycosponsorship[k,l])
+  }
+}
+row.names(gaycosponsorship2)<-names
+colnames(gaycosponsorship2)<-bills
+mindate<-0
+for (m in 1:numbills){
+mindate[m]<-min(gaycosponsorship2[,m],na.rm=T)
+}
+
+
+#--------------repeat the last section and remove votes that don't work------------
+
+bills2<-bills[mindate!=Inf]
+numbills2<-length(bills2)
+print((numbills-numbills2))
+print("    bills dropped due to zero variance")
+gaycosponsorship4<-matrix(rep(0,numbills2*NumHouse),NumHouse,numbills2)
+l<-1
+k<-1
+for (l in 1:numbills2){
+  for (k in 1:NumHouse){
+	legisicpsrnum<-paste(icpsr[k])
+	billwereon<-bills2[l]
+	gaycosponsorship4[k,l]<-paste(cospon.data[legisicpsrnum,billwereon])
+  }
+}
+row.names(gaycosponsorship4)<-names
+colnames(gaycosponsorship4)<-bills2
+l<-1
+k<-1
+for (l in 1:numbills2){
+  for (k in 1:NumHouse){
+	gaycosponsorship4[k,l]<-as.Date(gaycosponsorship4[k,l], "%m/%d/%Y")
+  }
+}
+l<-1
+k<-1
+gaycosponsorship5<-matrix(rep(0,numbills2*NumHouse),NumHouse,numbills2)
+for (l in 1:numbills2){
+  for (k in 1:NumHouse){
+	gaycosponsorship5[k,l]<-as.numeric(gaycosponsorship4[k,l])
+  }
+}
+row.names(gaycosponsorship5)<-names
+colnames(gaycosponsorship5)<-bills2
+mindate2<-0
+for (m in 1:numbills2){
+mindate2[m]<-min(gaycosponsorship5[,m],na.rm=T)
+gaycosponsorship5[,m]<-gaycosponsorship5[,m]-mindate2[m]
+}
+
+gaycosponsorship5<-recode(gaycosponsorship5,'NA=9999')
+print("cosponsorship data generated")
+
+#-------------output files---------------------------------------------------------
+
+gaycosponsorship5<-recode(gaycosponsorship5,'NA=9999')
+cosponsorshipdata<-as.matrix(gaycosponsorship5)
+votesdata<-as.matrix(votesmatrix101)
+numvotes<-numvotes101
+numlegislators<-NumHouse
+numbills3<-numbills2
+data<-list("numbills3"=numbills3,"numvotes"=numvotes,"numlegislators"=numlegislators,"votesdata"=votesdata,"cosponsorshipdata"=cosponsorshipdata)
+
+bugs.data(data)
+
+print("file generated successfully",quote=F)
+
+row.names(votesdata)<-names
+list(legislators=legislators,votedata=votesdata,billdata=cosponsorshipdata)
+
+}
+#----------------------------------------------------------------------------------
+
+
+#---------------------This function merges two votes/bills files made by the previous function into a single file------
+
+
+votesbillsdatamerge<-function(file1,file2){
+
+
+leg1<-file1$legislators
+leg2<-file2$legislators
+votes1<-file1$votedata
+votes2<-file2$votedata
+bills1<-file1$billdata
+bills2<-file2$billdata
+numleg1<-length(leg1[,1])
+numleg2<-length(leg2[,1])
+icpsr1<-leg1[,3]
+icpsr2<-leg2[,3]
+doublelegs<-0
+listdoubleleg1<-0
+listdoubleleg2<-0
+for (i in 1:numleg1){
+	for (j in 1:numleg2){
+		if (icpsr1[i]==icpsr2[j]) {
+			doublelegs<-doublelegs+1
+			listdoubleleg1<-c(listdoubleleg1,i)
+			listdoubleleg2<-c(listdoubleleg2,j)
+}}}
+listdoubleleg1<-listdoubleleg1[-1]
+listdoubleleg2<-listdoubleleg2[-1]
+list1<-1:numleg1
+list2<-1:numleg2
+uniqueicpsr1<-list1[-listdoubleleg1]
+numunique1<-numleg1-doublelegs
+uniqueicpsr2<-list2[-listdoubleleg2]
+numunique2<-numleg2-doublelegs
+totallegs<-(numleg1+numleg2-doublelegs)
+numvotes1<-length(votes1[1,])
+numvotes2<-length(votes2[1,])
+numbills1<-length(bills1[1,])
+numbills2<-length(bills2[1,])
+totalbills<-numbills1+numbills2
+totalvotes<-numvotes1+numvotes2
+totaldatacols<-totalbills+totalvotes
+newvotefile<-matrix(rep(NA,totalvotes*totallegs),totallegs,totalvotes)
+
+for (i in 1:doublelegs){
+	x<-listdoubleleg1[i]
+	for (j in 1:numvotes1){
+		newvotefile[i,j]<-votes1[x,j]
+	}
+	y<-listdoubleleg2[i]
+	for (k in 1:numvotes2){
+		newvotefile[i,(k+numvotes1)]<-votes2[y,k]
+	}
+}
+for (l in 1:numunique1){
+	x<-uniqueicpsr1[l]
+	for (m in 1:numvotes1){
+		newvotefile[(l+doublelegs),m]<-votes1[x,m]
+	}
+	for (n in 1:numvotes2){
+		newvotefile[(l+doublelegs),(n+numvotes1)]<-NA
+	}
+}
+for (l in 1:numunique2){
+	y<-uniqueicpsr2[l]
+	for (m in 1:numvotes1){
+		newvotefile[(l+doublelegs+numunique1),m]<-NA
+	}
+	for (n in 1:numvotes2){
+		newvotefile[(l+doublelegs+numunique1),(n+numvotes1)]<-votes2[y,n]
+	}
+}	
+
+newbillfile<-matrix(rep(NA,totalbills*totallegs),totallegs,totalbills)
+
+for (i in 1:doublelegs){
+	x<-listdoubleleg1[i]
+	for (j in 1:numbills1){
+		newbillfile[i,j]<-bills1[x,j]
+	}
+	y<-listdoubleleg2[i]
+	for (k in 1:numbills2){
+		newbillfile[i,(k+numbills1)]<-bills2[y,k]
+	}
+}
+for (l in 1:numunique1){
+	x<-uniqueicpsr1[l]
+	for (m in 1:numbills1){
+		newbillfile[(l+doublelegs),m]<-bills1[x,m]
+	}
+	for (n in 1:numbills2){
+		newbillfile[(l+doublelegs),(n+numbills1)]<-NA
+	}
+}
+for (l in 1:numunique2){
+	y<-uniqueicpsr2[l]
+	for (m in 1:numbills1){
+		newbillfile[(l+doublelegs+numunique1),m]<-NA
+	}
+	for (n in 1:numbills2){
+		newbillfile[(l+doublelegs+numunique1),(n+numbills1)]<-bills2[y,n]
+	}
+}
+
+newlegfile<-matrix(rep(NA,8*totallegs),totallegs,8)
+newlegfile<-data.frame(newlegfile)
+namestring<-"p"
+for (k in 1:doublelegs){
+	x<-listdoubleleg1[k]
+	namestring<-c(namestring,toString(leg1[x,1]))
+	for (g in 1:8){
+	newlegfile[k,g]<-leg1[x,g]}
+}
+namestring<-namestring[-1]
+for (j in 1:numunique1){
+	y<-uniqueicpsr1[j]
+	namestring<-c(namestring,toString(leg1[y,1]))
+	for (g in 1:8){
+	newlegfile[(doublelegs+j),g]<-leg1[y,g]}
+}
+for (l in 1:numunique2){
+	y<-uniqueicpsr2[l]
+	namestring<-c(namestring,toString(leg2[y,1]))
+	for (g in 1:8){
+	newlegfile[(doublelegs+numunique1+l),g]<-leg2[y,g]}
+}
+
+names<-namestring
+icpsr<-newlegfile[,3]
+state<-newlegfile[,4]
+con<-newlegfile[,2]
+statenum<-newlegfile[,5]
+district<-newlegfile[,6]
+party<-newlegfile[,7]
+partynum<-newlegfile[,8]
+
+newlegfile2<-data.frame(names,con,icpsr,state,statenum,district,party,partynum)
+
+
+mergeddata<-list("numbills3"=totalbills,"numvotes"=totalvotes,"numlegislators"=totallegs,"votesdata"=newvotefile,"cosponsorshipdata"=newbillfile)
+bugs.data(mergeddata)
+row.names(newvotefile)<-names
+row.names(newbillfile)<-names
+billlist1<-colnames(bills1)
+billlist2<-colnames(bills2)
+billnames<-c(billlist1,billlist2)
+colnames(newbillfile)<-billnames
+list(legislators=newlegfile2,votedata=newvotefile,billdata=newbillfile)
+}
+
+
+#-------------------------------------------------------------------------------------------------
+gay.bills<-c("HR3006","HR1100","HJ88","HR1059",   #gaybills for the 109th congress
+"HR284","HR3128","HC123","HR4379","HR3151",
+"HR5739","HR2662","HR3787","HR768","HR2553","HR3563")
+
+votes<-c(468,700,600,500,400,34)
+
+output<-makebillsandvotesfileH(votes=votes,bills=gay.bills,102)
+output2<-makebillsandvotesfileH(votes=votes,bills=gay.bills,109)
+output3<-votesbillsdatamerge(output,output2)
+
+
